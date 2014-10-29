@@ -46,19 +46,9 @@ var finalize = function(key, value){
 }
 
 function main(){
-	doProcessing();
+	runMapReduce();
 
 	printTopQueries();
-}
-
-function doProcessing(){
-	var namespaceAndCount = getTopCollectionNamespaces();
-
-	printjson(namespaceAndCount);
-
-	db.mr_systemProfile.drop();
-
-	namespaceAndCount.forEach(runMapReduce);
 }
 
 function printTopQueries(){
@@ -80,53 +70,19 @@ function printTopBy(sortKey, title){
 	});
 }
 
-function getTopCollectionNamespaces(){
-	var p = [{
-		$match: {
-			op : "query"
-		}
-	},{
-		$group: {
-			_id: "$ns",
-			count: {$sum: 1}
-		}
-	},{
-		$project:{
-			_id: 0,
-			namespace : "$_id",
-			queryCount: "$count"
-		}
-	},{
-		$sort: {
-			queryCount : -1
-		}
-	},{
-		$limit: 10
-	}];
-
-	var r = db.system_profile.aggregate(p);
-	
-	return r.result;
-}
-
 function runMapReduce(setting){
 	printjson({
 		starting: true,
 		timestamp: new Date(),
-		setting: setting
 	});
 
 	var query = {
-		op: 'query',
-		ns : setting.namespace
+		op: 'query'
 	};
 
 	var options = {
 		out: {
-			merge: 'mr_systemProfile'
-		},
-		scope: {
-			namespace : setting.namespace
+			replace: 'mr_systemProfile'
 		},
 		query: query,
 		finalize: finalize
@@ -137,7 +93,6 @@ function runMapReduce(setting){
 	printjson({
 		done: true,
 		timestamp: new Date(),
-		setting: setting
 	});
 }
 
