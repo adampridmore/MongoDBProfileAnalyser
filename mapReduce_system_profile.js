@@ -42,6 +42,10 @@ var reduce = function(key, values) {
 
 var finalize = function(key, value){
 	value.nscanned_nreturned_diff = value.nscanned - value.nreturned;
+	value.sampleDurationMs = durationMs;
+	value.queriesPerSecond = (value.count / (durationMs / 1000)).toFixed(0);
+	value.nreturned_nscanned_ratio = (value.nreturned / value.nscanned).toFixed(3);
+
 	return value;
 }
 
@@ -71,6 +75,8 @@ function printTopBy(sortKey, title){
 }
 
 function runMapReduce(setting){
+	var durationMs = getSampleDurationMs();
+
 	printjson({
 		starting: true,
 		timestamp: new Date(),
@@ -85,6 +91,9 @@ function runMapReduce(setting){
 			replace: 'mr_systemProfile'
 		},
 		query: query,
+		scope : {
+			durationMs: durationMs
+		},
 		finalize: finalize
 	};
 
@@ -94,6 +103,20 @@ function runMapReduce(setting){
 		done: true,
 		timestamp: new Date(),
 	});
+}
+
+function getSampleDurationMs(){
+	var r = db.system_profile.aggregate([{
+	    $group:{
+        	_id: null,
+        	min: {$min: "$ts"},
+        	max: {$max: "$ts"}
+    	}
+	}]);
+
+	var value = r.result[0];
+
+	return value.max.getTime() - value.min.getTime();
 }
 
 main();
