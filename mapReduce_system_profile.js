@@ -18,7 +18,7 @@ var map = function() {
 		count: 1,
 		millis: this.millis,
 		nscanned: this.nscanned,
-		ntoreturn: this.ntoreturn
+		nreturned: this.nreturned,
 	});
 };
 
@@ -27,25 +27,57 @@ var reduce = function(key, values) {
 		count: 0,
 		millis: 0,
 		nscanned: 0,
-		ntoreturn: 0
+		nreturned: 0
 	}
 
 	values.forEach(function(value){
 		aggregate.count+=value.count;
 		aggregate.millis+=value.millis;
 		aggregate.nscanned+=value.nscanned;
-		aggregate.ntoreturn+=value.ntoreturn;
+		aggregate.nreturned+=value.nreturned;
 	});
 	
 	return aggregate;
 };
 
+var finalize = function(key, value){
+	value.nscanned_nreturned_diff = value.nscanned - value.nreturned;
+	return value;
+}
+
 function main(){
+	doProcessing();
+
+	printTopQueries();
+}
+
+function doProcessing(){
 	var namespaceAndCount = getTopCollectionNamespaces();
 
 	printjson(namespaceAndCount);
-	
+
+	db.mr_systemProfile.drop();
+
 	namespaceAndCount.forEach(runMapReduce);
+}
+
+function printTopQueries(){
+	printTopBy({"value.count": -1}, "Top queries by query count");
+	printTopBy({"value.millis": -1}, "Top queries by query millis");
+	printTopBy({"value.nscanned_nreturned_diff": -1}, "Top queries by nscanned_nreturned_diff");
+}
+
+function printTopBy(sortKey, title){
+	var p = [{
+  		$sort:sortKey
+	},{
+  		$limit: 3
+	}];
+	var r = db.mr_systemProfile.aggregate(p);
+	printjson({
+		type: title,
+		result: r
+	});
 }
 
 function getTopCollectionNamespaces(){
@@ -78,6 +110,12 @@ function getTopCollectionNamespaces(){
 }
 
 function runMapReduce(setting){
+	printjson({
+		starting: true,
+		timestamp: new Date(),
+		setting: setting
+	});
+
 	var query = {
 		op: 'query',
 		ns : setting.namespace
@@ -85,14 +123,22 @@ function runMapReduce(setting){
 
 	var options = {
 		out: {
-			replace: 'mr_systemProfile_' + setting.namespace.split('.')[1]
+			merge: 'mr_systemProfile'
 		},
-		query: query
+		scope: {
+			namespace : setting.namespace
+		},
+		query: query,
+		finalize: finalize
 	};
 
 	db.system_profile.mapReduce(map, reduce, options);
 	
-	print(setting.namespace + ' done');
+	printjson({
+		done: true,
+		timestamp: new Date(),
+		setting: setting
+	});
 }
 
 main();
