@@ -11,7 +11,7 @@ var map = function() {
 	var key = {
 		ns: this.ns,
 		op: this.op,
-		queryKeys: queryKeys
+		queryKeys: queryKeys,
 	};
 
 	emit(key, {
@@ -19,6 +19,7 @@ var map = function() {
 		millis: this.millis,
 		nscanned: this.nscanned,
 		nreturned: this.nreturned,
+		exampleQuery: this.query,
 	});
 };
 
@@ -27,7 +28,8 @@ var reduce = function(key, values) {
 		count: 0,
 		millis: 0,
 		nscanned: 0,
-		nreturned: 0
+		nreturned: 0,
+		exampleQuery: values[0].exampleQuery,
 	}
 
 	values.forEach(function(value){
@@ -36,7 +38,7 @@ var reduce = function(key, values) {
 		aggregate.nscanned+=value.nscanned;
 		aggregate.nreturned+=value.nreturned;
 	});
-	
+
 	return aggregate;
 };
 
