@@ -42,28 +42,40 @@ var reduce = function(key, values) {
 
 function main(){
 	var namespaceAndCount = getTopCollectionNamespaces();
+
+	printjson(namespaceAndCount);
 	
-	
+	namespaceAndCount.forEach(runMapReduce);
 }
 
+function getTopCollectionNamespaces(){
+	var p = [{
+		$match: {
+			op : "query"
+		}
+	},{
+		$group: {
+			_id: "$ns",
+			count: {$sum: 1}
+		}
+	},{
+		$project:{
+			_id: 0,
+			namespace : "$_id",
+			queryCount: "$count"
+		}
+	},{
+		$sort: {
+			queryCount : -1
+		}
+	},{
+		$limit: 10
+	}];
 
-var mapReduceSettings = [{
-	namespace : "customers_shared.hierarchy"
-},{
-	namespace : "customers_shared.asset"
-},{
-	namespace : "customers_shared.person"
-},{
-	namespace : "customers_shared.currentPositionResult"
-},{
-	namespace : "customers_shared.assetUtilisation"
-},{
-	namespace : "customers_shared.input"
-},{
-	namespace : "customers_shared.personUtilisation"
-}];
-
-mapReduceSettings.forEach(runMapReduce);
+	var r = db.system_profile.aggregate(p);
+	
+	return r.result;
+}
 
 function runMapReduce(setting){
 	var query = {
@@ -79,10 +91,8 @@ function runMapReduce(setting){
 	};
 
 	db.system_profile.mapReduce(map, reduce, options);
+	
+	print(setting.namespace + ' done');
 }
-
-
-
-
 
 main();
